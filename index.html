@@ -605,16 +605,22 @@ document.querySelectorAll('.q button').forEach(function(b){
 
 /* ---- Deal downloads: direct file download from the GitHub release, page does not change ---- */
 (function(){
-  var REPO='2017discordoff-eng/Deal', TAG='v0.2.16', VER=TAG.replace(/^v/,'');
-  var BASE='https://github.com/'+REPO+'/releases/download/'+TAG+'/';
-  // names produced by the build config; replaced by the real asset names when GitHub answers
-  var files={
-    win:'Deal-Setup-'+VER+'.exe',
-    appimage:'Deal-'+VER+'.AppImage',
-    deb:'liner_'+VER+'_amd64.deb',
-    dmgarm:'Deal-'+VER+'-arm64.dmg',
-    dmgx64:'Deal-'+VER+'-x64.dmg'
-  };
+  var REPO='2017discordoff-eng/Deal';
+  // fallback used only if GitHub cannot be reached; the real latest version is read below
+  var TAG='v0.2.15', VER, BASE, files;
+  function setTag(tag){
+    TAG=tag; VER=TAG.replace(/^v/,'');
+    BASE='https://github.com/'+REPO+'/releases/download/'+TAG+'/';
+    // names produced by the build config; replaced by the real asset names when GitHub answers
+    files={
+      win:'Deal-Setup-'+VER+'.exe',
+      appimage:'Deal-'+VER+'.AppImage',
+      deb:'liner_'+VER+'_amd64.deb',
+      dmgarm:'Deal-'+VER+'-arm64.dmg',
+      dmgx64:'Deal-'+VER+'-x64.dmg'
+    };
+  }
+  setTag(TAG);
   var optional={winzip:true};
   function apply(){
     document.querySelectorAll('[data-asset]').forEach(function(a){
@@ -639,14 +645,15 @@ document.querySelectorAll('.q button').forEach(function(b){
     if(ico&&di)di.innerHTML=ico.innerHTML;
   }
   apply();
-  // ask GitHub for the real file names so a different naming still works
+  // ask GitHub for the LATEST release: the download links follow every new version automatically
   try{
-    fetch('https://api.github.com/repos/'+REPO+'/releases/tags/'+TAG,{headers:{Accept:'application/vnd.github+json'}})
+    fetch('https://api.github.com/repos/'+REPO+'/releases/latest',{headers:{Accept:'application/vnd.github+json'}})
       .then(function(r){return r.ok?r.json():null})
       .then(function(rel){
-        if(!rel||!rel.assets)return;
+        if(!rel||!rel.assets||!rel.tag_name)return;
+        setTag(rel.tag_name);
         var names=rel.assets.map(function(a){return a.name}).filter(function(n){return !/\.(blockmap|yml|yaml|sha256|sig|txt)$/i.test(n)});
-        window.__royidAssets=names;
+        window.__dealAssets=names;
         var pick=function(re,not){return names.filter(function(n){return re.test(n)&&!(not&&not.test(n))})[0]};
         var m={
           win:pick(/\.exe$/i),
@@ -687,7 +694,7 @@ document.querySelectorAll('.q button').forEach(function(b){
     if(href.charAt(0)==='#')return;
     e.preventDefault();
     var name=decodeURIComponent(href.split('/').pop());
-    var known=window.__royidAssets;
+    var known=window.__dealAssets;
     if(known&&known.length&&known.indexOf(name)===-1){
       note('File not found on the release: '+name);
       return;
